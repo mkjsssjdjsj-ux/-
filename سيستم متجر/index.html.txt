@@ -1,0 +1,961 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  LayoutDashboard, ShoppingBag, Tags, Layers, ShoppingCart, Users, FileText, 
+  Settings, Bell, LogOut, Search, Plus, ShieldAlert, Package, Globe, Store, 
+  Lock, Eye, EyeOff, Moon, Sun, Languages, ArrowRight, Activity, TrendingUp, 
+  DollarSign, Edit, Trash2, Printer, X, Check, AlertCircle, ChevronDown, Download
+} from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar
+} from 'recharts';
+
+// --- TRANSLATIONS (I18N) ---
+const TRANSLATIONS = {
+  en: {
+    // Auth & Layout
+    loginTitle: "AURA OS", loginSub: "Premium Retail Management", storeIdentity: "Store Identity",
+    storePlaceholder: "Enter your shop name", accessCode: "Access Code", passPlaceholder: "Enter password",
+    loginBtn: "Access System", adminLockTitle: "Protected Vault", adminLockSub: "Enter admin passcode (2009).",
+    unlockBtn: "Unlock Vault", welcome: "Welcome", overviewSubtitle: "Here is your store's live data.",
+    overview: "Overview", pos: "Point of Sale", products: "Products", categories: "Categories",
+    inventory: "Inventory", orders: "Orders", customers: "Customers", reports: "Analytics",
+    settings: "Settings", adminVault: "Admin Vault", signOut: "Sign Out", quickActions: "Quick Actions",
+    searchPlaceholder: "Search...", cancel: "Cancel", save: "Save", edit: "Edit", delete: "Delete",
+    
+    // Empty States
+    emptyProducts: "No products added yet. Start building your catalog.",
+    emptyCategories: "Your categories are empty. Organize your store.",
+    emptyPOS: "Point of Sale is empty. Add products to catalog first.",
+    emptyCustomers: "No customers found. Build your client base.",
+    emptyOrders: "No orders yet. Process your first transaction.",
+    emptyInventory: "Inventory clear. Add products to track stock.",
+    
+    // POS & Orders
+    cart: "Shopping Cart", subtotal: "Subtotal", tax: "Tax", discount: "Discount", total: "Total",
+    checkout: "Complete Sale", printInvoice: "Print Invoice", orderNo: "Order No", date: "Date",
+    customer: "Customer", status: "Status", qty: "Qty", price: "Price", method: "Payment Method",
+    cash: "Cash", card: "Card", invoice: "Invoice",
+    
+    // Entities
+    name: "Name", nameAr: "Arabic Name", nameEn: "English Name", sku: "SKU / Barcode",
+    category: "Category", brand: "Brand", costPrice: "Cost Price", sellPrice: "Selling Price",
+    stock: "Stock", minStock: "Min Stock Alert", phone: "Phone", email: "Email", address: "Address",
+    add: "Add New", profit: "Profit", revenue: "Revenue",
+    
+    // Settings & Admin
+    storeName: "Store Name", currency: "Currency Symbol", taxRate: "Tax Rate (%)", invoiceFooter: "Invoice Footer Note",
+    sysHealth: "System Health", totalSales: "Total Sales", netProfit: "Net Profit", itemsSold: "Items Sold"
+  },
+  ar: {
+    // Auth & Layout
+    loginTitle: "أورا أوس", loginSub: "إدارة التجزئة الفاخرة", storeIdentity: "هوية المتجر",
+    storePlaceholder: "أدخل اسم متجرك", accessCode: "رمز الدخول", passPlaceholder: "أدخل كلمة المرور",
+    loginBtn: "دخول النظام", adminLockTitle: "الخزنة المحمية", adminLockSub: "أدخل رمز الإدارة (2009).",
+    unlockBtn: "فتح الخزنة", welcome: "مرحباً", overviewSubtitle: "إليك بيانات متجرك المباشرة.",
+    overview: "نظرة عامة", pos: "نقطة البيع", products: "المنتجات", categories: "الفئات",
+    inventory: "المخزون", orders: "الطلبات", customers: "العملاء", reports: "التحليلات",
+    settings: "الإعدادات", adminVault: "لوحة الإدارة", signOut: "تسجيل الخروج", quickActions: "إجراءات سريعة",
+    searchPlaceholder: "بحث...", cancel: "إلغاء", save: "حفظ", edit: "تعديل", delete: "حذف",
+    
+    // Empty States
+    emptyProducts: "لم تتم إضافة منتجات بعد. ابدأ في بناء الكتالوج.",
+    emptyCategories: "الفئات فارغة. قم بتنظيم متجرك.",
+    emptyPOS: "نقطة البيع فارغة. أضف منتجات إلى الكتالوج أولاً.",
+    emptyCustomers: "لا يوجد عملاء. ابدأ في بناء قاعدة عملائك.",
+    emptyOrders: "لا توجد طلبات. قم بإجراء معاملتك الأولى.",
+    emptyInventory: "المخزون فارغ. أضف منتجات لتتبع المخزون.",
+    
+    // POS & Orders
+    cart: "سلة المشتريات", subtotal: "المجموع الفرعي", tax: "الضريبة", discount: "الخصم", total: "الإجمالي",
+    checkout: "إتمام البيع", printInvoice: "طباعة الفاتورة", orderNo: "رقم الطلب", date: "التاريخ",
+    customer: "العميل", status: "الحالة", qty: "الكمية", price: "السعر", method: "طريقة الدفع",
+    cash: "نقدي", card: "بطاقة", invoice: "فاتورة",
+    
+    // Entities
+    name: "الاسم", nameAr: "الاسم بالعربية", nameEn: "الاسم بالإنجليزية", sku: "رمز الصنف / الباركود",
+    category: "الفئة", brand: "العلامة التجارية", costPrice: "سعر التكلفة", sellPrice: "سعر البيع",
+    stock: "المخزون", minStock: "الحد الأدنى للمخزون", phone: "رقم الهاتف", email: "البريد الإلكتروني", address: "العنوان",
+    add: "إضافة جديد", profit: "الربح", revenue: "الإيرادات",
+    
+    // Settings & Admin
+    storeName: "اسم المتجر", currency: "رمز العملة", taxRate: "نسبة الضريبة (%)", invoiceFooter: "تذييل الفاتورة",
+    sysHealth: "صحة النظام", totalSales: "إجمالي المبيعات", netProfit: "صافي الربح", itemsSold: "المنتجات المباعة"
+  }
+};
+
+// --- INITIAL STATE / LOCAL STORAGE MANAGER ---
+const DEFAULT_DATA = {
+  categories: [],
+  products: [],
+  customers: [],
+  orders: [],
+  settings: {
+    currency: '$',
+    taxRate: 15,
+    invoiceFooter: 'Thank you for shopping with us!',
+  }
+};
+
+// Generate random IDs
+const generateId = (prefix) => `${prefix}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
+// --- SHARED UI COMPONENTS ---
+
+const Card = ({ children, className = '', hover = false }) => (
+  <div className={`bg-white/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm overflow-hidden ${hover ? 'transition-all duration-300 hover:border-amber-500/50 hover:shadow-lg' : ''} ${className}`}>
+    {children}
+  </div>
+);
+
+const Button = ({ children, variant = 'primary', className = '', icon: Icon, onClick, type = 'button', disabled = false }) => {
+  const baseStyle = "flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all duration-300 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none";
+  const variants = {
+    primary: "bg-gradient-to-r from-amber-600 to-yellow-500 text-white dark:text-neutral-950 hover:shadow-[0_0_20px_rgba(212,175,55,0.3)]",
+    secondary: "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-700",
+    danger: "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 hover:bg-red-500/20",
+    ghost: "bg-transparent text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800",
+  };
+  return (
+    <button type={type} onClick={onClick} disabled={disabled} className={`${baseStyle} ${variants[variant]} ${className}`}>
+      {Icon && <Icon size={18} />}
+      {children}
+    </button>
+  );
+};
+
+const Input = ({ label, type = "text", value, onChange, placeholder, required = false, icon: Icon }) => (
+  <div className="space-y-1.5">
+    {label && <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">{label}</label>}
+    <div className="relative">
+      {Icon && <Icon className="absolute start-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />}
+      <input 
+        type={type} value={value} onChange={onChange} placeholder={placeholder} required={required}
+        className={`w-full bg-neutral-50 dark:bg-neutral-950/50 border border-neutral-200 dark:border-neutral-800 rounded-xl py-2.5 ${Icon ? 'ps-10' : 'ps-4'} pe-4 text-neutral-900 dark:text-white outline-none focus:border-amber-500 transition-all`}
+      />
+    </div>
+  </div>
+);
+
+const Modal = ({ isOpen, onClose, title, children }) => {
+  if (!isOpen) return null;
+  return (
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/40 backdrop-blur-sm">
+        <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="flex justify-between items-center p-5 border-b border-neutral-200 dark:border-neutral-800">
+            <h3 className="text-xl font-semibold text-neutral-900 dark:text-white">{title}</h3>
+            <button onClick={onClose} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"><X size={24} /></button>
+          </div>
+          <div className="p-5 overflow-y-auto flex-1 custom-scrollbar">
+            {children}
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+const EmptyState = ({ icon: Icon, title, description, actionLabel, onAction }) => (
+  <div className="flex flex-col items-center justify-center text-center p-10 py-20 bg-white/30 dark:bg-neutral-900/30 rounded-3xl border border-dashed border-neutral-300 dark:border-neutral-700">
+    <div className="w-20 h-20 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-amber-500 mb-6">
+      <Icon size={40} strokeWidth={1.5} />
+    </div>
+    <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-2">{title}</h2>
+    <p className="text-neutral-500 dark:text-neutral-400 mb-6 max-w-sm">{description}</p>
+    {actionLabel && <Button variant="primary" icon={Plus} onClick={onAction}>{actionLabel}</Button>}
+  </div>
+);
+
+// --- PRINTABLE INVOICE COMPONENT ---
+// This component remains hidden until window.print() is called via CSS classes.
+const InvoicePrint = ({ order, storeName, settings, t }) => {
+  if (!order) return null;
+  return (
+    <div className="print-only hidden w-full bg-white text-black p-8 font-sans" dir="ltr">
+      <div className="text-center mb-8 border-b pb-4">
+        <h1 className="text-3xl font-bold mb-1">{storeName}</h1>
+        <p className="text-gray-500">Invoice / Receipt</p>
+      </div>
+      <div className="flex justify-between mb-8">
+        <div>
+          <p><strong>{t('orderNo')}:</strong> {order.orderNo}</p>
+          <p><strong>{t('date')}:</strong> {new Date(order.date).toLocaleString()}</p>
+        </div>
+        <div className="text-right">
+          <p><strong>{t('customer')}:</strong> {order.customerName || 'Guest'}</p>
+          <p><strong>{t('method')}:</strong> {order.paymentMethod}</p>
+        </div>
+      </div>
+      <table className="w-full mb-8 border-collapse">
+        <thead>
+          <tr className="border-b-2 border-black text-left">
+            <th className="py-2">Item</th>
+            <th className="py-2 text-center">Qty</th>
+            <th className="py-2 text-right">Price</th>
+            <th className="py-2 text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {order.items.map((item, idx) => (
+            <tr key={idx} className="border-b border-gray-200">
+              <td className="py-3">
+                <p className="font-semibold">{item.nameEn}</p>
+                {item.size && <span className="text-sm text-gray-500">Size: {item.size} </span>}
+                {item.color && <span className="text-sm text-gray-500">Color: {item.color}</span>}
+              </td>
+              <td className="py-3 text-center">{item.qty}</td>
+              <td className="py-3 text-right">{settings.currency}{item.sellPrice.toFixed(2)}</td>
+              <td className="py-3 text-right">{settings.currency}{(item.qty * item.sellPrice).toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="flex justify-end">
+        <div className="w-64 space-y-2">
+          <div className="flex justify-between"><p>{t('subtotal')}:</p><p>{settings.currency}{order.subtotal.toFixed(2)}</p></div>
+          <div className="flex justify-between text-red-600"><p>{t('discount')}:</p><p>-{settings.currency}{order.discount.toFixed(2)}</p></div>
+          <div className="flex justify-between"><p>{t('tax')} ({settings.taxRate}%):</p><p>{settings.currency}{order.tax.toFixed(2)}</p></div>
+          <div className="flex justify-between text-xl font-bold border-t pt-2 mt-2"><p>{t('total')}:</p><p>{settings.currency}{order.total.toFixed(2)}</p></div>
+        </div>
+      </div>
+      <div className="mt-16 text-center text-gray-500 text-sm border-t pt-4">
+        {settings.invoiceFooter}
+      </div>
+    </div>
+  );
+};
+
+// --- VIEWS ---
+
+const DashboardView = ({ db, t }) => {
+  const today = new Date().setHours(0,0,0,0);
+  const todaysOrders = db.orders.filter(o => new Date(o.date).setHours(0,0,0,0) === today);
+  const totalRevenue = db.orders.reduce((sum, o) => sum + o.total, 0);
+  const totalProfit = db.orders.reduce((sum, o) => sum + o.profit, 0);
+  const todayRevenue = todaysOrders.reduce((sum, o) => sum + o.total, 0);
+  const lowStockCount = db.products.filter(p => p.stock <= p.minStock).length;
+
+  // Chart data (Last 7 days)
+  const chartData = useMemo(() => {
+    const data = [];
+    for(let i=6; i>=0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const dayStr = d.toLocaleDateString('en-US', { weekday: 'short' });
+      const dayOrders = db.orders.filter(o => new Date(o.date).setHours(0,0,0,0) === d.setHours(0,0,0,0));
+      data.push({
+        name: dayStr,
+        Revenue: dayOrders.reduce((s, o) => s + o.total, 0),
+        Profit: dayOrders.reduce((s, o) => s + o.profit, 0)
+      });
+    }
+    return data;
+  }, [db.orders]);
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-light text-neutral-900 dark:text-white">{t('overview')}</h1>
+        <p className="text-neutral-500 dark:text-neutral-400 mt-1">{t('overviewSubtitle')}</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { title: t('revenue') + " (Today)", value: `${db.settings.currency}${todayRevenue.toFixed(2)}`, icon: DollarSign, color: "text-amber-500" },
+          { title: t('orders') + " (Today)", value: todaysOrders.length, icon: Package, color: "text-emerald-500" },
+          { title: "Total " + t('products'), value: db.products.length, icon: Tags, color: "text-blue-500" },
+          { title: "Low Stock Alerts", value: lowStockCount, icon: AlertCircle, color: lowStockCount > 0 ? "text-red-500" : "text-neutral-500" },
+        ].map((kpi, i) => (
+          <Card key={i} className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 font-medium mb-1">{kpi.title}</p>
+              <h3 className="text-2xl font-bold text-neutral-900 dark:text-white">{kpi.value}</h3>
+            </div>
+            <div className={`p-3 bg-neutral-100 dark:bg-neutral-800 rounded-xl ${kpi.color}`}>
+              <kpi.icon size={24} />
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 p-6 h-[400px] flex flex-col">
+          <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-6">Revenue & Profit (Last 7 Days)</h3>
+          {db.orders.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#d4af37" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#d4af37" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#3f3f46" opacity={0.3} />
+                <XAxis dataKey="name" stroke="#71717a" fontSize={12} tickLine={false} />
+                <YAxis stroke="#71717a" fontSize={12} tickLine={false} tickFormatter={(val) => `${db.settings.currency}${val}`} />
+                <RechartsTooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', color: '#fff', borderRadius: '8px' }} />
+                <Area type="monotone" dataKey="Revenue" stroke="#d4af37" strokeWidth={3} fill="url(#colorRev)" />
+                <Area type="monotone" dataKey="Profit" stroke="#10b981" strokeWidth={3} fill="transparent" />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-neutral-400">
+               <Activity size={48} className="mb-4 opacity-20" />
+               <p>{t('emptyOrders')}</p>
+            </div>
+          )}
+        </Card>
+
+        <Card className="p-6 flex flex-col">
+           <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-6">Recent Transactions</h3>
+           <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+              {db.orders.length > 0 ? (
+                db.orders.slice().reverse().slice(0, 6).map(order => (
+                  <div key={order.id} className="flex justify-between items-center p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border border-neutral-100 dark:border-neutral-800">
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-900 dark:text-white">{order.orderNo}</p>
+                      <p className="text-xs text-neutral-500">{new Date(order.date).toLocaleDateString()}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-amber-500">{db.settings.currency}{order.total.toFixed(2)}</p>
+                      <p className="text-xs text-neutral-500">{order.items.length} items</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-neutral-500 text-center mt-10">{t('emptyOrders')}</p>
+              )}
+           </div>
+        </Card>
+      </div>
+    </motion.div>
+  );
+};
+
+const POSView = ({ db, updateDb, lang, t, setPrintOrder }) => {
+  const [cart, setCart] = useState([]);
+  const [discount, setDiscount] = useState(0);
+  const [selectedCustomer, setSelectedCustomer] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [search, setSearch] = useState('');
+
+  const filteredProducts = db.products.filter(p => 
+    p.stock > 0 && 
+    (p.nameEn.toLowerCase().includes(search.toLowerCase()) || 
+     p.nameAr.includes(search) || 
+     p.sku.includes(search))
+  );
+
+  const addToCart = (product) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.id === product.id);
+      if (existing) {
+        if(existing.qty >= product.stock) return prev; // block over-stock
+        return prev.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item);
+      }
+      return [...prev, { ...product, qty: 1, size: product.sizes[0] || '', color: product.colors[0] || '' }];
+    });
+  };
+
+  const updateCartQty = (id, delta) => {
+    setCart(prev => prev.map(item => {
+      if(item.id === id) {
+        const newQty = Math.max(1, Math.min(item.qty + delta, db.products.find(p=>p.id===id).stock));
+        return {...item, qty: newQty};
+      }
+      return item;
+    }));
+  };
+
+  const removeFromCart = (id) => setCart(prev => prev.filter(item => item.id !== id));
+
+  const subtotal = cart.reduce((sum, item) => sum + (item.sellPrice * item.qty), 0);
+  const taxAmount = (subtotal - discount) * (db.settings.taxRate / 100);
+  const total = Math.max(0, subtotal - discount + taxAmount);
+  const totalProfit = cart.reduce((sum, item) => sum + ((item.sellPrice - item.costPrice) * item.qty), 0) - discount;
+
+  const handleCheckout = () => {
+    if (cart.length === 0) return;
+
+    // Deduct Stock
+    const updatedProducts = db.products.map(p => {
+      const cartItem = cart.find(c => c.id === p.id);
+      if (cartItem) return { ...p, stock: p.stock - cartItem.qty };
+      return p;
+    });
+
+    // Create Order
+    const newOrder = {
+      id: generateId('ORD'),
+      orderNo: `INV-${Date.now().toString().slice(-6)}`,
+      date: new Date().toISOString(),
+      customerId: selectedCustomer,
+      customerName: db.customers.find(c => c.id === selectedCustomer)?.name || 'Guest',
+      items: cart,
+      subtotal, discount, tax: taxAmount, total, profit: totalProfit,
+      paymentMethod
+    };
+
+    updateDb({ products: updatedProducts, orders: [...db.orders, newOrder] });
+    setPrintOrder(newOrder); // Triggers the print view and auto-print
+    setCart([]);
+    setDiscount(0);
+    setSelectedCustomer('');
+  };
+
+  if (db.products.length === 0) return <EmptyState icon={ShoppingCart} title={t('emptyPOS')} description={t('emptyProducts')} actionLabel={t('add')} onAction={() => window.location.hash = 'products'}/>;
+
+  return (
+    <div className="h-[calc(100vh-8rem)] flex flex-col lg:flex-row gap-6">
+      {/* Product Grid */}
+      <div className="flex-1 flex flex-col h-full space-y-4">
+        <Input placeholder={t('searchPlaceholder')} value={search} onChange={e => setSearch(e.target.value)} icon={Search} />
+        <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pr-2 custom-scrollbar pb-20 lg:pb-0">
+          {filteredProducts.map(p => (
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} key={p.id} onClick={() => addToCart(p)}
+              className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 cursor-pointer hover:border-amber-500 transition-colors flex flex-col"
+            >
+              <div className="h-24 bg-neutral-100 dark:bg-neutral-800 rounded-xl mb-3 flex items-center justify-center">
+                <ShoppingBag size={32} className="text-neutral-400" />
+              </div>
+              <h4 className="font-semibold text-neutral-900 dark:text-white line-clamp-1">{lang === 'ar' ? p.nameAr : p.nameEn}</h4>
+              <div className="mt-auto pt-2 flex justify-between items-end">
+                <span className="text-amber-600 dark:text-amber-500 font-bold">{db.settings.currency}{p.sellPrice}</span>
+                <span className="text-xs text-neutral-500">{p.stock} left</span>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* Cart Sidebar */}
+      <Card className="w-full lg:w-[400px] flex flex-col h-full shrink-0">
+        <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-between items-center">
+          <h2 className="font-semibold text-neutral-900 dark:text-white flex items-center gap-2"><ShoppingCart size={20}/> {t('cart')}</h2>
+          <span className="bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 px-2.5 py-1 rounded-lg text-sm font-bold">{cart.length}</span>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+          {cart.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-neutral-400 opacity-50"><ShoppingCart size={48} className="mb-2"/> <p>Cart is empty</p></div>
+          ) : (
+            cart.map(item => (
+              <div key={item.id} className="flex gap-3 bg-neutral-50 dark:bg-neutral-800/40 p-3 rounded-xl border border-neutral-100 dark:border-neutral-800">
+                <div className="flex-1">
+                  <h5 className="text-sm font-semibold text-neutral-900 dark:text-white line-clamp-1">{lang === 'ar' ? item.nameAr : item.nameEn}</h5>
+                  <div className="text-amber-600 dark:text-amber-500 font-medium text-sm">{db.settings.currency}{item.sellPrice}</div>
+                </div>
+                <div className="flex flex-col items-end justify-between">
+                  <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-500"><X size={16}/></button>
+                  <div className="flex items-center gap-2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg">
+                    <button onClick={() => updateCartQty(item.id, -1)} className="px-2 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-800">-</button>
+                    <span className="text-sm font-medium w-4 text-center">{item.qty}</span>
+                    <button onClick={() => updateCartQty(item.id, 1)} className="px-2 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-800">+</button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 space-y-3">
+          <select value={selectedCustomer} onChange={(e) => setSelectedCustomer(e.target.value)} className="w-full bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-xl py-2 px-3 text-sm outline-none">
+            <option value="">Guest Customer</option>
+            {db.customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          
+          <div className="flex gap-2">
+            <div className="flex-1"><Input type="number" placeholder="Discount" value={discount || ''} onChange={(e)=>setDiscount(Number(e.target.value) || 0)} /></div>
+            <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="flex-1 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-xl py-2 px-3 text-sm outline-none">
+              <option value="Cash">{t('cash')}</option>
+              <option value="Card">{t('card')}</option>
+            </select>
+          </div>
+
+          <div className="pt-2 space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+            <div className="flex justify-between"><span>{t('subtotal')}</span><span>{db.settings.currency}{subtotal.toFixed(2)}</span></div>
+            <div className="flex justify-between text-red-500"><span>{t('discount')}</span><span>-{db.settings.currency}{discount.toFixed(2)}</span></div>
+            <div className="flex justify-between"><span>{t('tax')} ({db.settings.taxRate}%)</span><span>{db.settings.currency}{taxAmount.toFixed(2)}</span></div>
+          </div>
+          <div className="pt-3 border-t border-neutral-200 dark:border-neutral-800 flex justify-between items-center mb-4">
+            <span className="font-semibold text-neutral-900 dark:text-white">{t('total')}</span>
+            <span className="text-2xl font-bold text-amber-500">{db.settings.currency}{total.toFixed(2)}</span>
+          </div>
+          <Button variant="primary" className="w-full py-3.5 text-lg shadow-lg" disabled={cart.length === 0} onClick={handleCheckout}>
+            {t('checkout')}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+const ProductsView = ({ db, updateDb, lang, t }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({ nameEn: '', nameAr: '', sku: '', categoryId: '', brand: '', costPrice: 0, sellPrice: 0, stock: 0, minStock: 5, sizes: '', colors: '' });
+  const [search, setSearch] = useState('');
+
+  const handleOpen = (prod = null) => {
+    if (prod) {
+      setEditingId(prod.id);
+      setForm({ ...prod, sizes: prod.sizes.join(','), colors: prod.colors.join(',') });
+    } else {
+      setEditingId(null);
+      setForm({ nameEn: '', nameAr: '', sku: '', categoryId: db.categories[0]?.id || '', brand: '', costPrice: 0, sellPrice: 0, stock: 0, minStock: 5, sizes: '', colors: '' });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSave = (e) => {
+    e.preventDefault();
+    const payload = {
+      ...form,
+      sizes: form.sizes.split(',').map(s=>s.trim()).filter(Boolean),
+      colors: form.colors.split(',').map(s=>s.trim()).filter(Boolean),
+      costPrice: Number(form.costPrice), sellPrice: Number(form.sellPrice),
+      stock: Number(form.stock), minStock: Number(form.minStock)
+    };
+
+    if (editingId) {
+      updateDb({ products: db.products.map(p => p.id === editingId ? { ...p, ...payload } : p) });
+    } else {
+      updateDb({ products: [{ ...payload, id: generateId('PRD') }, ...db.products] });
+    }
+    setIsModalOpen(false);
+  };
+
+  const handleDelete = (id) => {
+    if(confirm('Delete this product?')) updateDb({ products: db.products.filter(p => p.id !== id) });
+  };
+
+  const filtered = db.products.filter(p => p.nameEn.toLowerCase().includes(search.toLowerCase()) || p.sku.includes(search));
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">{t('products')}</h1>
+        <Button variant="primary" icon={Plus} onClick={() => handleOpen()}>{t('add')}</Button>
+      </div>
+      
+      {db.products.length === 0 ? (
+        <EmptyState icon={Tags} title={t('emptyProducts')} description="Add your first product to begin selling." actionLabel={t('add')} onAction={() => handleOpen()} />
+      ) : (
+        <Card className="p-4">
+          <Input placeholder={t('searchPlaceholder')} value={search} onChange={e=>setSearch(e.target.value)} icon={Search} />
+          <div className="overflow-x-auto mt-4">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-neutral-200 dark:border-neutral-800 text-neutral-500 text-sm">
+                  <th className="p-3 font-medium">{t('name')}</th>
+                  <th className="p-3 font-medium">{t('sku')}</th>
+                  <th className="p-3 font-medium">{t('sellPrice')}</th>
+                  <th className="p-3 font-medium">{t('stock')}</th>
+                  <th className="p-3 font-medium text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                {filtered.map(p => (
+                  <tr key={p.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/30">
+                    <td className="p-3 text-neutral-900 dark:text-white font-medium">{lang === 'ar' ? p.nameAr : p.nameEn}</td>
+                    <td className="p-3 text-neutral-500">{p.sku}</td>
+                    <td className="p-3 text-amber-600 dark:text-amber-500 font-semibold">{db.settings.currency}{p.sellPrice}</td>
+                    <td className="p-3">
+                      <span className={`px-2 py-1 rounded-md text-xs font-bold ${p.stock <= p.minStock ? 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400'}`}>
+                        {p.stock}
+                      </span>
+                    </td>
+                    <td className="p-3 flex justify-end gap-2">
+                      <button onClick={()=>handleOpen(p)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg dark:hover:bg-blue-500/10"><Edit size={16}/></button>
+                      <button onClick={()=>handleDelete(p.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg dark:hover:bg-red-500/10"><Trash2 size={16}/></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? t('edit') : t('add')}>
+        <form onSubmit={handleSave} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Input label={t('nameEn')} value={form.nameEn} onChange={e=>setForm({...form, nameEn: e.target.value})} required />
+            <Input label={t('nameAr')} value={form.nameAr} onChange={e=>setForm({...form, nameAr: e.target.value})} required />
+            <Input label={t('sku')} value={form.sku} onChange={e=>setForm({...form, sku: e.target.value})} required />
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('category')}</label>
+              <select required value={form.categoryId} onChange={e=>setForm({...form, categoryId: e.target.value})} className="w-full bg-neutral-50 dark:bg-neutral-950/50 border border-neutral-200 dark:border-neutral-800 rounded-xl py-2.5 px-4 text-neutral-900 dark:text-white outline-none focus:border-amber-500">
+                <option value="">Select Category</option>
+                {db.categories.map(c => <option key={c.id} value={c.id}>{lang === 'ar' ? c.nameAr : c.nameEn}</option>)}
+              </select>
+            </div>
+            <Input label={t('costPrice')} type="number" value={form.costPrice} onChange={e=>setForm({...form, costPrice: e.target.value})} required />
+            <Input label={t('sellPrice')} type="number" value={form.sellPrice} onChange={e=>setForm({...form, sellPrice: e.target.value})} required />
+            <Input label={t('stock')} type="number" value={form.stock} onChange={e=>setForm({...form, stock: e.target.value})} required />
+            <Input label={t('minStock')} type="number" value={form.minStock} onChange={e=>setForm({...form, minStock: e.target.value})} required />
+            <Input label="Sizes (comma separated)" value={form.sizes} onChange={e=>setForm({...form, sizes: e.target.value})} />
+            <Input label="Colors (comma separated)" value={form.colors} onChange={e=>setForm({...form, colors: e.target.value})} />
+          </div>
+          <div className="flex gap-3 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+            <Button variant="secondary" className="flex-1" onClick={()=>setIsModalOpen(false)}>{t('cancel')}</Button>
+            <Button type="submit" variant="primary" className="flex-1">{t('save')}</Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+};
+
+const CategoriesView = ({ db, updateDb, lang, t }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({ nameEn: '', nameAr: '', desc: '' });
+
+  const handleOpen = (cat = null) => {
+    if (cat) { setEditingId(cat.id); setForm(cat); } 
+    else { setEditingId(null); setForm({ nameEn: '', nameAr: '', desc: '' }); }
+    setIsModalOpen(true);
+  };
+
+  const handleSave = (e) => {
+    e.preventDefault();
+    if (editingId) updateDb({ categories: db.categories.map(c => c.id === editingId ? { ...c, ...form } : c) });
+    else updateDb({ categories: [{ ...form, id: generateId('CAT') }, ...db.categories] });
+    setIsModalOpen(false);
+  };
+
+  const handleDelete = (id) => {
+    if(db.products.some(p => p.categoryId === id)) return alert('Cannot delete category with existing products.');
+    if(confirm('Delete category?')) updateDb({ categories: db.categories.filter(c => c.id !== id) });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">{t('categories')}</h1>
+        <Button variant="primary" icon={Plus} onClick={() => handleOpen()}>{t('add')}</Button>
+      </div>
+      
+      {db.categories.length === 0 ? (
+        <EmptyState icon={Layers} title={t('emptyCategories')} description="Create categories to organize products." actionLabel={t('add')} onAction={() => handleOpen()} />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {db.categories.map(c => (
+            <Card key={c.id} className="p-5 flex justify-between items-center">
+              <div>
+                <h3 className="font-semibold text-lg text-neutral-900 dark:text-white">{lang === 'ar' ? c.nameAr : c.nameEn}</h3>
+                <p className="text-sm text-neutral-500">{db.products.filter(p=>p.categoryId===c.id).length} Products</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={()=>handleOpen(c)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg dark:hover:bg-blue-500/10"><Edit size={16}/></button>
+                <button onClick={()=>handleDelete(c.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg dark:hover:bg-red-500/10"><Trash2 size={16}/></button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? t('edit') : t('add')}>
+        <form onSubmit={handleSave} className="space-y-4">
+          <Input label={t('nameEn')} value={form.nameEn} onChange={e=>setForm({...form, nameEn: e.target.value})} required />
+          <Input label={t('nameAr')} value={form.nameAr} onChange={e=>setForm({...form, nameAr: e.target.value})} required />
+          <div className="flex gap-3 pt-4">
+            <Button variant="secondary" className="flex-1" onClick={()=>setIsModalOpen(false)}>{t('cancel')}</Button>
+            <Button type="submit" variant="primary" className="flex-1">{t('save')}</Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+};
+
+const OrdersView = ({ db, t, setPrintOrder }) => {
+  if (db.orders.length === 0) return <EmptyState icon={FileText} title={t('emptyOrders')} description="Orders will appear here after checkout." />;
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">{t('orders')} History</h1>
+      <Card className="p-4 overflow-x-auto">
+        <table className="w-full text-left border-collapse min-w-[600px]">
+          <thead>
+            <tr className="border-b border-neutral-200 dark:border-neutral-800 text-neutral-500 text-sm">
+              <th className="p-3 font-medium">{t('orderNo')}</th>
+              <th className="p-3 font-medium">{t('date')}</th>
+              <th className="p-3 font-medium">{t('customer')}</th>
+              <th className="p-3 font-medium">{t('total')}</th>
+              <th className="p-3 font-medium text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+            {db.orders.slice().reverse().map(o => (
+              <tr key={o.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/30">
+                <td className="p-3 text-neutral-900 dark:text-white font-medium">{o.orderNo}</td>
+                <td className="p-3 text-neutral-500">{new Date(o.date).toLocaleString()}</td>
+                <td className="p-3 text-neutral-500">{o.customerName}</td>
+                <td className="p-3 text-amber-600 dark:text-amber-500 font-semibold">{db.settings.currency}{o.total.toFixed(2)}</td>
+                <td className="p-3 flex justify-end gap-2">
+                  <Button variant="secondary" className="px-3 py-1 text-xs" icon={Printer} onClick={() => setPrintOrder(o)}>Receipt</Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+};
+
+const SettingsView = ({ db, updateDb, t }) => {
+  const [form, setForm] = useState(db.settings);
+  const handleSave = (e) => { e.preventDefault(); updateDb({ settings: form }); alert('Settings Saved!'); };
+
+  return (
+    <div className="space-y-6 max-w-2xl mx-auto">
+      <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">{t('settings')}</h1>
+      <Card className="p-6">
+        <form onSubmit={handleSave} className="space-y-4">
+          <Input label={t('currency')} value={form.currency} onChange={e=>setForm({...form, currency: e.target.value})} required />
+          <Input label={t('taxRate')} type="number" value={form.taxRate} onChange={e=>setForm({...form, taxRate: Number(e.target.value)})} required />
+          <Input label={t('invoiceFooter')} value={form.invoiceFooter} onChange={e=>setForm({...form, invoiceFooter: e.target.value})} required />
+          <Button type="submit" variant="primary" className="w-full mt-4">{t('save')}</Button>
+        </form>
+      </Card>
+    </div>
+  );
+};
+
+const AdminVaultView = ({ db, updateDb, t }) => {
+  const resetData = () => {
+    if(confirm("DANGER: This will delete ALL products, sales, and customers. Are you sure?")) {
+      updateDb({ products: [], categories: [], customers: [], orders: [] });
+      alert("Database wiped.");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-3xl font-light text-rose-600 dark:text-rose-500">{t('adminVault')}</h1>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="p-6 border-t-4 border-rose-500">
+          <h3 className="text-neutral-500 font-medium mb-2">{t('totalSales')}</h3>
+          <h2 className="text-3xl font-bold text-neutral-900 dark:text-white">{db.settings.currency}{db.orders.reduce((s,o)=>s+o.total,0).toFixed(2)}</h2>
+        </Card>
+        <Card className="p-6 border-t-4 border-emerald-500">
+          <h3 className="text-neutral-500 font-medium mb-2">{t('netProfit')}</h3>
+          <h2 className="text-3xl font-bold text-neutral-900 dark:text-white">{db.settings.currency}{db.orders.reduce((s,o)=>s+o.profit,0).toFixed(2)}</h2>
+        </Card>
+        <Card className="p-6 border-t-4 border-blue-500">
+          <h3 className="text-neutral-500 font-medium mb-2">{t('itemsSold')}</h3>
+          <h2 className="text-3xl font-bold text-neutral-900 dark:text-white">{db.orders.reduce((s,o)=>s+o.items.reduce((sum, i)=>sum+i.qty,0),0)}</h2>
+        </Card>
+      </div>
+      <Card className="p-6 mt-6 bg-red-50 dark:bg-red-500/5 border-red-200 dark:border-red-900">
+        <h3 className="text-red-600 dark:text-red-400 font-bold mb-2">Danger Zone</h3>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Hard reset all database tables. This action cannot be undone.</p>
+        <Button variant="danger" icon={AlertCircle} onClick={resetData}>Wipe Database</Button>
+      </Card>
+    </div>
+  );
+};
+
+
+// --- LAYOUT COMPONENTS ---
+
+const Sidebar = ({ currentView, setCurrentView, storeName, t }) => {
+  const links = [
+    { id: 'overview', label: t('overview'), icon: LayoutDashboard },
+    { id: 'pos', label: t('pos'), icon: ShoppingCart },
+    { id: 'products', label: t('products'), icon: Tags },
+    { id: 'categories', label: t('categories'), icon: Layers },
+    { id: 'orders', label: t('orders'), icon: FileText },
+    { id: 'settings', label: t('settings'), icon: Settings },
+  ];
+
+  return (
+    <div className="w-64 h-screen border-e border-neutral-200 dark:border-neutral-800 bg-white/50 dark:bg-neutral-950/50 backdrop-blur-xl flex flex-col hidden lg:flex shrink-0">
+      <div className="h-20 flex items-center px-6 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+            {storeName.charAt(0).toUpperCase()}
+          </div>
+          <div className="font-bold text-lg text-neutral-900 dark:text-white truncate max-w-[150px]">
+            {storeName}
+          </div>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto py-6 px-4 space-y-1.5 custom-scrollbar">
+        {links.map((link) => (
+          <button key={link.id} onClick={() => setCurrentView(link.id)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === link.id ? 'bg-amber-500/10 text-amber-600 dark:text-amber-500 font-semibold' : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800/50'}`}
+          >
+            <link.icon size={20} /> <span>{link.label}</span>
+          </button>
+        ))}
+        <div className="pt-6 mt-6 border-t border-neutral-200 dark:border-neutral-800">
+          <button onClick={() => setCurrentView('admin-vault')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'admin-vault' ? 'bg-rose-500/10 text-rose-500 font-semibold' : 'text-neutral-500 hover:text-rose-500 hover:bg-rose-500/5'}`}
+          >
+            <ShieldAlert size={20} /> <span>{t('adminVault')}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- AUTH SCREENS ---
+
+const LoginScreen = ({ onLogin, lang, toggleLang, theme, toggleTheme, t }) => {
+  const [storeName, setStoreName] = useState(localStorage.getItem('aura_storeName') || '');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (password === '2010' && storeName.trim()) {
+      localStorage.setItem('aura_storeName', storeName.trim());
+      onLogin(storeName.trim());
+    } else setError("Invalid credentials (Use 2010)");
+  };
+
+  return (
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex flex-col relative items-center justify-center p-4 transition-colors duration-500">
+      <div className="absolute top-0 w-full p-6 flex justify-end gap-4 z-20">
+        <button onClick={toggleLang} className="p-2 bg-white/50 dark:bg-neutral-900/50 rounded-full border border-neutral-200 dark:border-neutral-800"><Languages size={18} /></button>
+        <button onClick={toggleTheme} className="p-2 bg-white/50 dark:bg-neutral-900/50 rounded-full border border-neutral-200 dark:border-neutral-800">{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
+      </div>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-[400px] bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl p-8 rounded-[2rem] shadow-2xl border border-neutral-200 dark:border-neutral-800 z-10">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-yellow-600 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg"><Layers size={32} className="text-white"/></div>
+          <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">{t('loginTitle')}</h1>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Input label={t('storeIdentity')} value={storeName} onChange={e=>setStoreName(e.target.value)} icon={Store} required />
+          <Input label={t('accessCode')} type="password" value={password} onChange={e=>setPassword(e.target.value)} icon={Lock} required />
+          {error && <p className="text-red-500 text-sm text-center bg-red-500/10 py-2 rounded-lg">{error}</p>}
+          <Button type="submit" className="w-full py-3.5 mt-2">{t('loginBtn')}</Button>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
+
+const AdminLockScreen = ({ onUnlock, onCancel, t }) => {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (password === '2009') onUnlock();
+    else { setError(true); setTimeout(() => setError(false), 2000); setPassword(''); }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-neutral-100/90 dark:bg-neutral-950/90 backdrop-blur-xl z-50 flex items-center justify-center p-4">
+      <Card className="max-w-md w-full p-8 text-center border-t-4 border-t-rose-500 shadow-2xl">
+        <ShieldAlert size={48} className="mx-auto text-rose-500 mb-4" />
+        <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">{t('adminLockTitle')}</h2>
+        <p className="text-neutral-500 mb-6">{t('adminLockSub')}</p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoFocus
+            className={`w-full bg-neutral-50 dark:bg-neutral-900 border rounded-xl py-4 text-center tracking-widest text-xl outline-none ${error ? 'border-rose-500' : 'border-neutral-200 dark:border-neutral-800 focus:border-rose-500'}`}
+          />
+          <div className="flex gap-3 mt-4">
+             <Button variant="secondary" onClick={onCancel} className="flex-1">{t('cancel')}</Button>
+             <Button type="submit" className="flex-1 !bg-rose-600 !text-white hover:shadow-rose-500/30">{t('unlockBtn')}</Button>
+          </div>
+        </form>
+      </Card>
+    </motion.div>
+  );
+};
+
+// --- MAIN APP COMPONENT & DATA LAYER ---
+
+export default function App() {
+  const [auth, setAuth] = useState({ isAuthenticated: false, storeName: '' });
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [currentView, setCurrentView] = useState('overview');
+  const [lang, setLang] = useState(localStorage.getItem('aura_lang') || 'en');
+  const [theme, setTheme] = useState(localStorage.getItem('aura_theme') || 'dark');
+  const [db, setDb] = useState(() => JSON.parse(localStorage.getItem('aura_db')) || DEFAULT_DATA);
+  const [printOrder, setPrintOrder] = useState(null);
+
+  const t = (key) => TRANSLATIONS[lang][key] || key;
+
+  // Persist DB
+  useEffect(() => { localStorage.setItem('aura_db', JSON.stringify(db)); }, [db]);
+  // Persist Preferences
+  useEffect(() => { localStorage.setItem('aura_lang', lang); document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'; }, [lang]);
+  useEffect(() => { localStorage.setItem('aura_theme', theme); if (theme === 'dark') document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark'); }, [theme]);
+
+  // Handle Print Effect
+  useEffect(() => {
+    if (printOrder) {
+      setTimeout(() => { window.print(); setPrintOrder(null); }, 500); // Slight delay to render
+    }
+  }, [printOrder]);
+
+  // Global styles for print layout & scrollbars
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 10px; }
+      .dark ::-webkit-scrollbar-thumb { background: #3f3f46; }
+      body { background-color: ${theme === 'dark' ? '#0a0a0a' : '#fafafa'}; transition: background-color 0.3s; }
+      @media print {
+        body * { visibility: hidden; }
+        .print-only, .print-only * { visibility: visible; }
+        .print-only { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, [theme]);
+
+  const updateDb = (updates) => setDb(prev => ({ ...prev, ...updates }));
+
+  if (!auth.isAuthenticated) {
+    return <LoginScreen onLogin={(name) => setAuth({ isAuthenticated: true, storeName: name })} lang={lang} toggleLang={() => setLang(l => l === 'en' ? 'ar' : 'en')} theme={theme} toggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} t={t} />;
+  }
+
+  return (
+    <>
+      <InvoicePrint order={printOrder} storeName={auth.storeName} settings={db.settings} t={t} />
+      
+      <div className="no-print flex h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 font-sans transition-colors duration-300">
+        <Sidebar currentView={currentView} setCurrentView={setCurrentView} storeName={auth.storeName} t={t} />
+        
+        <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
+          <header className="h-20 border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-950/80 backdrop-blur-md flex items-center justify-end px-8 z-40">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setLang(l => l === 'en' ? 'ar' : 'en')} className="p-2 bg-neutral-100 dark:bg-neutral-900 rounded-xl"><Languages size={18} /></button>
+              <button onClick={() => setTheme(th => th === 'dark' ? 'light' : 'dark')} className="p-2 bg-neutral-100 dark:bg-neutral-900 rounded-xl">{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
+              <div className="h-6 w-px bg-neutral-200 dark:bg-neutral-800 mx-2"></div>
+              <button onClick={() => { setAuth({ isAuthenticated: false, storeName: '' }); setAdminUnlocked(false); setCurrentView('overview'); }} className="flex items-center gap-2 text-rose-500 font-medium px-2"><LogOut size={18}/> <span className="hidden sm:block">{t('signOut')}</span></button>
+            </div>
+          </header>
+          
+          <main className="flex-1 overflow-y-auto p-6 md:p-8 z-10 custom-scrollbar relative">
+            <AnimatePresence mode="wait">
+              {currentView === 'admin-vault' && !adminUnlocked && (
+                <AdminLockScreen key="lock" onUnlock={() => setAdminUnlocked(true)} onCancel={() => setCurrentView('overview')} t={t} />
+              )}
+              <motion.div key={currentView + (adminUnlocked ? '-unl' : '')} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="h-full max-w-7xl mx-auto">
+                {currentView === 'overview' && <DashboardView db={db} t={t} />}
+                {currentView === 'products' && <ProductsView db={db} updateDb={updateDb} lang={lang} t={t} />}
+                {currentView === 'categories' && <CategoriesView db={db} updateDb={updateDb} lang={lang} t={t} />}
+                {currentView === 'pos' && <POSView db={db} updateDb={updateDb} lang={lang} t={t} setPrintOrder={setPrintOrder} />}
+                {currentView === 'orders' && <OrdersView db={db} t={t} setPrintOrder={setPrintOrder} />}
+                {currentView === 'settings' && <SettingsView db={db} updateDb={updateDb} t={t} />}
+                {currentView === 'admin-vault' && adminUnlocked && <AdminVaultView db={db} updateDb={updateDb} t={t} />}
+              </motion.div>
+            </AnimatePresence>
+          </main>
+        </div>
+      </div>
+    </>
+  );
+}
